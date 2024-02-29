@@ -9,3 +9,7 @@ Code used during The NASA GeneLab Plant Analysis Working Group (AWG) meta-analys
 https://github.com/dr-richard-barker/The-Matrix-2022
 
 I'd like to thank Dr Colin Kruse, Dr Christina Johnson, Prof Simon Gilroy and the rest of our co-authors for their collaboration on this project.
+
+**Below:** is an artistic montage that illustrates some of the cellular and other related biology that is altered during spaceflight. 
+
+![MATRIX_graphical_abstract](https://github.com/dr-richard-barker/Plants_AWG/assets/8679982/5ebf8408-7008-460e-8fce-c69b9a797544)
