@@ -11,7 +11,9 @@ The Plants Analysis Working Group is comprised of international research scienti
 ## Current leads: 
 - Richard Barker, University of Wisconsin-Madison
 
-- We have a new election cycle coming in the spring so please come join the plant 
+- We have a new election cycle coming in the spring so please come join the plant analysis working group.
+- 
+  [Apply to join the GeneLab plant analysis working group](https://osdr.nasa.gov/bio/awg/join.html) 
 
 
 ## Select one of the following subdirectories to view the group's work:
