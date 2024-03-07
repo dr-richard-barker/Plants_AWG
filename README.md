@@ -9,7 +9,7 @@ The [Open Science Data Repository (OSDR)](https://osdr.nasa.gov/bio/) is a scien
 The Plants Analysis Working Group is comprised of international research scientists and professors working together with a shared goal of developing a central document exploring the metadata and scientific findings from spaceflight and ground-based experiments. The group's meta-analysis research focused on the transcriptional response of Arabidopsis to spaceflight and the integration of epigenetics, proteomics, and glycomic datasets to make predictions and guide future research into the metabolic response of crops in orbit. Additionally, the group has contributed to building new analysis pipelines, providing input on standardizing plant metadata terms, and publishing collaborative manuscripts utilizing GeneLab omics data. This working group is striving to enhance the visibility and utility of GeneLab and spur new collaborations to develop the fundamental and applied knowledge to enable long-term spaceflight and ground-based advances to agriculture. Plants AWG members meet regularly to share and discuss the latest developments in AstroBotany – the discipline of botany concerned with interactions between plant biology and the space environment.
 
 ## Current leads: 
-- Dr Richard Barker, University of Wisconsin-Madison, Blue Marble Institute of Space and the NASA Open Science Archive.
+- Dr Richard Barker, Honorary fellow of the University of Wisconsin-Madison, Blue Marble Space Institute of Science (BMSIS) and the NASA Open Science Archive.
 
 - We have a new election cycle coming in the spring so please come join the plant analysis working group.
 
