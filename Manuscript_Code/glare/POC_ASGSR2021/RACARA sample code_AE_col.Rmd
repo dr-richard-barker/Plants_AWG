@@ -1,0 +1,433 @@
+---
+title: "RACARA sample code_AE_col"
+author: "Alex DongHyeon Seo"
+date: "Nov 27, 2021"
+output: pdf_document
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{}
+- \rhead{RACARA}
+- \lhead{Gilroy Lab}
+- \cfoot{\thepage}
+---
+
+<!-- R chunk setup -->
+```{r setup, include=FALSE}
+# global chunk options
+knitr::opts_chunk$set(echo = TRUE, comment = NA)
+
+# load and attach add-on packages here
+library(knitr)
+library(qcc)
+library(tidyverse)
+library(leaps)
+library(MVA)
+library(MASS)
+library(ggfortify)
+library(Rtsne)
+library(h2o)
+```
+
+<!-- Page Break -->
+\newpage
+
+##Abstract from ASGSR
+
+###Authors: DongHyeon Seo, Ricahrd Barker, Simon Gilroy
+
+Spaceflight studies present unprecedented insights into biological processes responding to a unique environmental situation that was not part of the evolutionary history of living organisms. Although access to space to perform primary experiments is limited, the flight research community has come together to deposit their experimental datasets, such as transcriptomics data, at NASA's GeneLab data repository, with the goal of facilitating further analysis and extending the insights drawn from each individual spaceflight. In addition, GeneLab has reprocessed the transcriptome data using a 'common' pipeline to help standardize analyses between studies. We have therefore used the Paul/Ferl CARA (Characterizing Arabidopsis Root Attraction) experiment (GeneLab DataSet-120, GLDS-120) as a robust spaceflight dataset with which to explore the application of learning-model driven analyses to facilitate new insights into plant response to spaceflight.
+
+We accessed the GeneLab processed data of GLDS-120 from the NASA GeneLab repository and trained different representation learning models, including Sparse Autoencoder, to perform pattern recognition using the gene level transcriptional values (FPKM). This analysis of the transcriptome data confirms the original researchers' study that highlighted cell wall remodeling as being a key consequence of spaceflight physiological adaptation. We also identified alterations in circadian rhythm, likely through oxidative stress-dependent events, as a potential novel response pathway. Our analysis pipeline further revealed hidden patterns of vesicular trafficking related to cell wall expansion, genotype-specific gene ontologies associated with flower development, and response to hypoxia. We also found environmental changes, either light or spaceflight depending on the genotype, altered the suite of hormone signaling pathways to regulate the plant defense response and growth. This work suggests there is great potential to supplement the insights drawn from their initial studies through further analysis of the experimental datasets within the GeneLab repository. Supported by NASA 80NSSC18K0126, 80NSSC18K0132.
+
+
+```{r}
+set.seed(1892) 
+##Minor data issue found from GeneLab team: Unstranded libraries were run as reverse stranded 
+##'glds120' is the latest datast while 'nasa' is the dataset that were used for the analysis
+
+glds120<-read.csv("https://genelab-data.ndc.nasa.gov/datamanager/file/Home/genelab-data/GLDS-120/rna_seq/GLDS-120_rna_seq_Normalized_Counts.csv")
+nasa<-read.csv(url('https://raw.github.com/alexdseo/NASA-GeneLab/master/data/GLDS-120_rna_seq_Normalized_Counts.csv'))
+
+#CARA_FC<-read.csv("logfc_GLDS120.csv") 
+##head(nasa)
+##summary(nasa)
+#Dividing dataset 
+#view(nasa)
+rna_seq<-nasa[,1]
+phyD_FLT<-nasa[,c(1:7)]
+phyD_GC<-nasa[,c(1,8:13)]
+col_FLT<-nasa[,c(1,14:19)]
+col_GC<-nasa[,c(1,20:25)]
+WS_FLT<-nasa[,c(1,26:31)]
+WS_GC<-nasa[,c(1,32:37)]
+#Species
+phyD<-cbind(phyD_FLT,phyD_GC[,-1])
+col<-cbind(col_FLT,col_GC[,-1])
+WS<-cbind(WS_FLT,WS_GC[,-1])
+
+```
+
+
+
+```{r}
+#col
+colnames(col_FLT)<-c('LOCI','FLT_L(1)','FLT_L(2)','FLT_L(3)','FLT_D(1)','FLT_D(2)','FLT_D(3)')
+col_FLT<-col_FLT[-c(861, 12958, 23875),]
+
+set.seed(1892)
+#PCA
+col_FLT.pca<-princomp(col_FLT[,-1])
+summary(col_FLT.pca)
+a1<-col_FLT.pca$scores[,1]
+a2<-col_FLT.pca$scores[,2]
+a<-cbind(a1,a2)
+
+pcaplot <- data.frame(PC1 = a1, PC2 = a2)
+
+ggplot(pcaplot, aes(x = PC1, y = PC2)) +
+  geom_point()
+
+eigvals<-col_FLT.pca$sdev^2
+k<-length(eigvals)
+plot(1:k,eigvals,type="b",xlab="i",ylab=expression(lambda[i]))
+
+##PCAbiplot
+ggplot2::autoplot(col_FLT.pca,label = F, loadings.label = T)
+#which(a1 > 4e+05)
+#which(a2 < -1e+05)
+```
+
+
+
+```{r}
+##kmeans
+n<-dim(a)[1]; k<-6
+wss<- rep(0,k); xm<-apply(a,2,mean)
+for(i in 1:n){
+  wss[1]<- wss[1]+sum((a[i,]-xm)^2)
+}
+for(i in 2:k){
+  model<-kmeans(a,i)
+  wss[i]<-sum(model$withinss)
+}
+plot(1:k,wss,type="b",xlab="Number of clusters", ylab="Within cluster sum of squares",main="Screeplot")
+
+k<-4
+set.seed(1892)
+km4<-kmeans(a,k)
+
+df <- data.frame(PC1 = a1, PC2 = a2, cluster = factor(km4$cluster))
+
+ggplot(df, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point()
+
+
+#length(col_FLT[which(km4$cluster==1),1]) #226
+#length(col_FLT[which(km4$cluster==2),1]) #22939
+#length(col_FLT[which(km4$cluster==3),1]) #1290
+#length(col_FLT[which(km4$cluster==4),1]) #43
+```
+
+```{r}
+col_FLT_c1<-col_FLT[which(km4$cluster==1),]
+#AE
+h2o.init(max_mem_size = "5g")
+hd_colFLT<-as.h2o(col_FLT_c1[,-1])
+set.seed(1892)
+
+aeflt <- h2o.deeplearning(
+  x = colnames(hd_colFLT),
+  training_frame = hd_colFLT,
+  autoencoder = TRUE,
+  hidden = c(512,256,32,2),
+  activation = 'Tanh',
+  epochs =50,
+  sparse = TRUE,
+  verbose = TRUE
+)
+
+aeflt_encoding <- h2o.deepfeatures(aeflt, hd_colFLT, layer = 4)
+
+fltencoding <- as.data.frame(aeflt_encoding);colnames(fltencoding)<-c('df1','df2')
+ggplot(fltencoding, aes(x = df1, y = df2)) +
+  geom_point()
+```
+
+
+```{r}
+#tsne on Map on raw
+
+set.seed(1892)
+col_FLT.tsne<-Rtsne(col_FLT_c1[,-1], dims = 2, perplexity=30, verbose=TRUE, max_iter = 500, check_duplicates = FALSE)
+t1<-col_FLT.tsne$Y[,1];t2<-col_FLT.tsne$Y[,2]
+t<-cbind(t1,t2)
+tsneplot <- data.frame(tsne1 = t1, tsne2 = t2)
+
+ggplot(tsneplot, aes(x = tsne1, y = tsne2)) +
+  geom_point()
+```
+
+
+```{r}
+##EM clustering with only Deep feature on tSNE map with raw
+library(mclust)
+set.seed(1892)
+mclus_default<-Mclust(fltencoding)
+
+mclass<-mclus_default$classification
+k<-mclus_default$G
+(mclus_default$modelName)
+
+df <- data.frame(tsne1 = t1, tsne2 = t2, cluster = factor(mclass))
+
+ggplot(df, aes(x = tsne1, y = tsne2, color = cluster)) +
+  geom_point()
+```
+
+
+```{r}
+length(col_FLT_c1[which(mclass==1),1]) #2167
+col_FLT_ae1<-data.frame(col_FLT_c1[which(mclass==1),1])
+write.csv(col_FLT_ae1, file = "col_FLT_ae1.csv")
+
+length(col_FLT_c1[which(mclass==2),1]) #560
+col_FLT_ae2<-data.frame(col_FLT_c1[which(mclass==2),1])
+write.csv(col_FLT_ae2, file = "col_FLT_ae2.csv")
+
+length(col_FLT_c1[which(mclass==3),1]) #2105
+col_FLT_ae3<-data.frame(col_FLT_c1[which(mclass==3),1])
+write.csv(col_FLT_ae3, file = "col_FLT_ae3.csv")
+
+length(col_FLT_c1[which(mclass==4),1]) #3472
+col_FLT_ae4<-data.frame(col_FLT_c1[which(mclass==4),1])
+write.csv(col_FLT_ae4, file = "col_FLT_ae4.csv")
+
+length(col_FLT_c1[which(mclass==5),1]) #4192
+col_FLT_ae5<-data.frame(col_FLT_c1[which(mclass==5),1])
+write.csv(col_FLT_ae5, file = "col_FLT_ae5.csv")
+
+length(col_FLT_c1[which(mclass==6),1]) #193
+col_FLT_ae6<-data.frame(col_FLT_c1[which(mclass==6),1])
+write.csv(col_FLT_ae6, file = "col_FLT_ae6.csv")
+
+length(col_FLT_c1[which(mclass==7),1]) #3489
+col_FLT_ae7<-data.frame(col_FLT_c1[which(mclass==7),1])
+write.csv(col_FLT_ae7, file = "col_FLT_ae7.csv")
+
+length(col_FLT_c1[which(mclass==8),1]) #2375
+col_FLT_ae8<-data.frame(col_FLT_c1[which(mclass==8),1])
+write.csv(col_FLT_ae8, file = "col_FLT_ae8.csv")
+
+length(col_FLT_c1[which(mclass==9),1]) #3845
+col_FLT_ae9<-data.frame(col_FLT_c1[which(mclass==9),1])
+write.csv(col_FLT_ae9, file = "col_FLT_ae9.csv")
+```
+
+```{r}
+#dbscan
+library(dbscan)
+
+kNNdistplot(fltencoding, k =  10)
+abline(h = 40, lty = 2)
+
+db<-dbscan(fltencoding, eps = .001, minPts = 100)
+db
+
+df <- data.frame(tsne1 = t1, tsne2 = t2, cluster = factor(db$cluster))
+
+
+ggplot(df, aes(x = tsne1, y = tsne2, color = cluster)) +
+  geom_point()
+
+#length(col_FLT_c1[which(db$cluster==1),1])
+#col_FLT_dbscan1<-data.frame(col_FLT_c1[which(db$cluster==1),1])
+
+#write.csv(col_FLT_dbscan1, file = "col_FLT_dbscan1.csv")
+```
+
+##GC
+
+```{r}
+#col
+colnames(col_GC)<-c('LOCI','GC_L(1)','GC_L(2)','GC_L(3)','GC_D(1)','GC_D(2)','GC_D(3)')
+col_GC<-col_GC[-c(861, 12958, 23875),]
+#12958,23875:GC_D(2), 861: GC_L(2,3)
+set.seed(1892)
+#PCA
+col_GC.pca<-princomp(col_GC[,-1])
+summary(col_GC.pca)
+a1<-col_GC.pca$scores[,1]
+a2<-col_GC.pca$scores[,2]
+a<-cbind(a1,a2)
+
+pcaplot <- data.frame(PC1 = a1, PC2 = a2)
+
+ggplot(pcaplot, aes(x = PC1, y = PC2)) +
+  geom_point()
+
+eigvals<-col_GC.pca$sdev^2
+k<-length(eigvals)
+plot(1:k,eigvals,type="b",xlab="i",ylab=expression(lambda[i]))
+
+##PCAbiplot
+ggplot2::autoplot(col_GC.pca,label = F, loadings.label = T)#
+#which(a1 > 1e+05)
+
+```
+
+
+```{r}
+##kmeans
+n<-dim(a)[1]; k<-6
+wss<- rep(0,k); xm<-apply(a,2,mean)
+for(i in 1:n){
+  wss[1]<- wss[1]+sum((a[i,]-xm)^2)
+}
+for(i in 2:k){
+  model<-kmeans(a,i)
+  wss[i]<-sum(model$withinss)
+}
+plot(1:k,wss,type="b",xlab="Number of clusters", ylab="Within cluster sum of squares",main="Screeplot")
+
+k<-4
+set.seed(1892)
+km4<-kmeans(a,k)
+
+df <- data.frame(PC1 = a1, PC2 = a2, cluster = factor(km4$cluster))
+
+ggplot(df, aes(x = PC1, y = PC2, color = cluster)) +
+  geom_point()
+
+
+length(col_GC[which(km4$cluster==1),1])
+
+length(col_GC[which(km4$cluster==2),1])
+
+length(col_GC[which(km4$cluster==3),1])
+
+length(col_GC[which(km4$cluster==4),1])
+```
+
+
+```{r}
+col_GC_c1<-col_GC[which(km4$cluster==2),]
+#AE
+h2o.init(max_mem_size = "5g")
+hd_colGC<-as.h2o(col_GC_c1[,-1])
+set.seed(1892)
+
+aegc <- h2o.deeplearning(
+  x = colnames(hd_colGC),
+  training_frame = hd_colGC,
+  autoencoder = TRUE,
+  hidden = c(512,256,32,2),
+  activation = 'Tanh',
+  epochs =50,
+  sparse = TRUE,
+  verbose = TRUE
+)
+
+aegc_encoding <- h2o.deepfeatures(aegc, hd_colGC, layer = 4)
+
+gcencoding <- as.data.frame(aegc_encoding);colnames(gcencoding)<-c('df1','df2')
+ggplot(gcencoding, aes(x = df1, y = df2)) +
+  geom_point()
+```
+
+
+
+```{r}
+#tsne Map with raw
+
+set.seed(1892)
+col_GC.tsne<-Rtsne(col_GC_c1[,-1], dims = 2, perplexity=30, verbose=TRUE, max_iter = 500, check_duplicates = FALSE)
+t1<-col_GC.tsne$Y[,1];t2<-col_GC.tsne$Y[,2]
+t<-cbind(t1,t2)
+tsneplot <- data.frame(tsne1 = t1, tsne2 = t2)
+
+ggplot(tsneplot, aes(x = tsne1, y = tsne2)) +
+  geom_point()
+```
+
+
+```{r}
+##EM clustering with only Deep feature on tSNE map with raw
+library(mclust)
+set.seed(1892)
+mclus_default<-Mclust(gcencoding)
+
+mclass<-mclus_default$classification
+k<-mclus_default$G
+(mclus_default$modelName)
+
+df <- data.frame(tsne1 = t1, tsne2 = t2, cluster = factor(mclass))
+
+ggplot(df, aes(x = tsne1, y = tsne2, color = cluster)) +
+  geom_point()
+```
+
+
+
+```{r}
+length(col_GC_c1[which(mclass==1),1]) #2016
+col_GC_mclass1<-data.frame(col_GC_c1[which(mclass==1),1])
+write.csv(col_GC_mclass1, file = "col_GC_ae1.csv")
+
+length(col_GC_c1[which(mclass==2),1]) #2258
+col_GC_mclass2<-data.frame(col_GC_c1[which(mclass==2),1])
+write.csv(col_GC_mclass2, file = "col_GC_ae2.csv")
+
+length(col_GC_c1[which(mclass==3),1]) #2189
+col_GC_mclass3<-data.frame(col_GC_c1[which(mclass==3),1])
+write.csv(col_GC_mclass3, file = "col_GC_ae3.csv")
+
+length(col_GC_c1[which(mclass==4),1]) #509
+col_GC_mclass4<-data.frame(col_GC_c1[which(mclass==4),1])
+write.csv(col_GC_mclass4, file = "col_GC_ae4.csv")
+
+length(col_GC_c1[which(mclass==5),1]) #1504
+col_GC_mclass5<-data.frame(col_GC_c1[which(mclass==5),1])
+write.csv(col_GC_mclass5, file = "col_GC_ae5.csv")
+
+length(col_GC_c1[which(mclass==6),1]) #3036
+col_GC_mclass6<-data.frame(col_GC_c1[which(mclass==6),1])
+write.csv(col_GC_mclass6, file = "col_GC_ae6.csv")
+
+length(col_GC_c1[which(mclass==7),1]) #3202
+col_GC_mclass7<-data.frame(col_GC_c1[which(mclass==7),1])
+write.csv(col_GC_mclass7, file = "col_GC_ae7.csv")
+
+length(col_GC_c1[which(mclass==8),1]) #4109
+col_GC_mclass8<-data.frame(col_GC_c1[which(mclass==8),1])
+write.csv(col_GC_mclass8, file = "col_GC_ae8.csv")
+
+length(col_GC_c1[which(mclass==9),1]) #4087
+col_GC_mclass9<-data.frame(col_GC_c1[which(mclass==9),1])
+write.csv(col_GC_mclass9, file = "col_GC_ae9.csv")
+```
+
+
+```{r}
+#dbscan
+library(dbscan)
+
+kNNdistplot(gcencoding, k =  5)
+abline(h = 50, lty = 2)
+
+db<-dbscan(gcencoding,eps = .01,minPts = 50)
+db
+
+
+df <- data.frame(tsne1 = t1, tsne2 = t2, cluster = factor(db$cluster))
+
+
+ggplot(df, aes(x = tsne1, y = tsne2, color = cluster)) +
+  geom_point()
+
+#length(col_GC_c1[which(db$cluster==1),1])
+#col_GC_dbscan1<-data.frame(col_GC_c1[which(db$cluster==1),1])
+
+#write.csv(col_GC_dbscan1, file = "col_GC_dbscan1.csv")
+```
+
