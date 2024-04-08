@@ -4,4 +4,4 @@ This directory holds code that is used in Plants AWG manuscripts. Explore Plants
 
 ## Plant AWG Manuscripts:
 
-- [RACARA](RACARA)
+- [GLARE](glare)
