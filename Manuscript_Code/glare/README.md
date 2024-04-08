@@ -10,4 +10,4 @@ Spaceflight studies present novel insights into biological processes through exp
 
 ## Proof of concept
 
-Proof of concept study was presented at ASGSR 2021, where you can find the source code and the abstract poster [here](RACARA).
+Proof of concept study was presented at ASGSR 2021, where you can find the source code and the abstract poster at [POC_ASGSR2021](POC_ASGSR2021).
